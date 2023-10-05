@@ -11,24 +11,17 @@ import lightgbm as lgb
 import pickle
 import gdown  # Import gdown for file downloading
 from datetime import datetime, timedelta
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI
 from starlette.responses import JSONResponse
 
 
 app = FastAPI()
 
-# load data
-url = "https://drive.google.com/uc?export=download&id=1MxzLINcFcUrdoTQZGLsBcrPDpBM0rbEL"
-output = 'predictive_test_data.csv'
-gdown.download(url, output, quiet=False)
-
-predict_df = pd.read_csv(output)
-
 #load predictive model
-predictive_model = lgb.Booster(model_file='models/lightgbm.txt')
+predictive_model = lgb.Booster(model_file='../models/lightgbm.txt')
 
 #load forecasting model
-with open('models/forecasting/holt_winters_model.pkl', 'rb') as f:
+with open('../models/holtwinters.pkl', 'rb') as f:
     forecasting_model = pickle.load(f)
 
 @app.get("/")
@@ -41,7 +34,7 @@ def root():
             "/sales/national/": "Get the next 7 days sales volume forecast for an input date.",
             "/sales/stores/items/": "Get predicted sales volume for an input item, store, and date."
         },
-        "Github repo": "https://github.com/user/repo"
+        "Github repo": "https://github.com/frodorocky/adv_mla_ass_2_hw_api"
     }
 
 @app.get('/health', status_code=200)
@@ -50,10 +43,9 @@ def healthcheck():
 
 @app.get("/sales/national/")
 def sales_national(date: str):
-    try:
-        input_date = datetime.strptime(date, "%Y-%m-%d")
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format. Please use 'YYYY-MM-DD'.")
+    
+    # Convert input_date string to a date object
+    input_date = datetime.strptime(date, "%Y-%m-%d").date()
         
     # Define the start date
     start_date = datetime.strptime("2015-04-18", "%Y-%m-%d")
@@ -74,19 +66,22 @@ def sales_national(date: str):
 
 @app.get("/sales/stores/items/")
 def sales_stores_items(date: str, item_id: str, store_id: str):
-    try:
-        input_date = datetime.strptime(date, "%Y-%m-%d")
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format. Please use 'YYYY-MM-DD'.")
-     
+    
+    # Convert input_date string to a date object
+    date = datetime.strptime(date, "%Y-%m-%d").date()
+    
+    # load data
+    url = "https://drive.google.com/uc?export=download&id=1MxzLINcFcUrdoTQZGLsBcrPDpBM0rbEL"
+    output = 'predictive_test_data.csv'
+    gdown.download(url, output, quiet=False)
+
+    predict_df = pd.read_csv(output)
+    
     filtered_rows = predict_df[
         (predict_df['date'] == date) &
         (predict_df['item_id'] == item_id) &
         (predict_df['store_id'] == store_id)
     ]
-
-    if filtered_rows.empty:
-        raise HTTPException(status_code=404, detail="No matching data found for the given parameters.")
     
     # Mocking data for sales volume prediction
     pred = predictive_model.predict(filtered_rows)

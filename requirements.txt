@@ -6,3 +6,4 @@ joblib==1.2.0
 statsmodels== 0.13.5
 pickleshare==0.7.5
 lightgbm==3.2.1
+gdown==4.7.1
